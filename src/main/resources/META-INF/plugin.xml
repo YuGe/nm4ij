@@ -1,0 +1,33 @@
+<idea-plugin>
+    <id>me.yuge.nm4ij</id>
+    <name>Nonmem</name>
+    <vendor email="yuge.me@gmail.com" url="https://github.com/yuge/nm4ij">YuGe</vendor>
+
+    <description><![CDATA[
+    Basic NONMEM language support for IntelliJ Platform-based IDEs.
+    ]]></description>
+
+    <!-- please see https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Nonmem File"
+                  implementationClass="me.yuge.nonmem.NonmemFileType"
+                  fieldName="INSTANCE" language="Nonmem" extensions="ctl;mod"/>
+        <lang.parserDefinition
+                language="Nonmem"
+                implementationClass="me.yuge.nonmem.NonmemParserDefinition"/>
+        <lang.syntaxHighlighterFactory
+                language="Nonmem"
+                implementationClass="me.yuge.nonmem.editor.NonmemSyntaxHighlighterFactory"/>
+        <colorSettingsPage
+                implementation="me.yuge.nonmem.editor.NonmemColorSettingsPage"/>
+        <annotator language="Nonmem"
+                   implementationClass="me.yuge.nonmem.editor.NonmemAnnotator"/>
+    </extensions>
+
+    <actions>
+        <!-- Add your actions here -->
+    </actions>
+</idea-plugin>

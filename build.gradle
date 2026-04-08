@@ -1,0 +1,43 @@
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij.platform' version '2.13.1'
+}
+
+group = 'me.yuge'
+version = '0.2.0'
+
+repositories {
+    maven { url = 'https://maven.aliyun.com/repository/public/' }
+    maven { url = 'https://maven.aliyun.com/repository/central' }
+    mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
+}
+
+dependencies {
+    intellijPlatform {
+        intellijIdea '2026.1'
+
+        bundledPlugin 'com.intellij.java'
+
+        testFramework TestFrameworkType.Platform.INSTANCE
+    }
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// Include the generated files in the source set
+sourceSets.main.java.srcDirs 'src/main/gen'
+
+patchPluginXml {
+    version = project.version
+    sinceBuild = '261'
+    untilBuild = '261.*'
+}
+
+test {
+    useJUnitPlatform()
+}

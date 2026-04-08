@@ -1,0 +1,152 @@
+{
+  parserClass="me.yuge.nonmem.parser.NonmemParser"
+  parserUtilClass="me.yuge.nonmem.parser.NonmemParserUtil"
+
+  extends="com.intellij.extapi.psi.ASTWrapperPsiElement"
+
+  psiClassPrefix="Nonmem"
+  psiImplClassSuffix="Impl"
+  psiPackage="me.yuge.nonmem.psi"
+  psiImplPackage="me.yuge.nonmem.psi.impl"
+  psiImplUtilClass="me.yuge.nonmem.psi.impl.GrammarPsiImplUtil"
+
+  elementTypeHolderClass="me.yuge.nonmem.psi.NonmemTypes"
+  elementTypeClass="me.yuge.nonmem.psi.NonmemElementType"
+  tokenTypeClass="me.yuge.nonmem.psi.NonmemTokenType"
+
+  tokens = [
+    OP_ASSIGN="="
+    OP_PLUS="+"
+    OP_MINUS="-"
+    OP_MUL="*"
+    OP_POWER="**"
+    OP_QUOTIENT="/"
+    COMMA=","
+    LEFT_PAREN="("
+    RIGHT_PAREN=")"
+    DOLLAR="$"
+
+    space="regexp:\s+"
+    comment="regexp:;.*"
+    number="regexp:-?\d+(\.\d*)?([Ee][+-]\d+)?"
+    data_format="regexp:(I\d+(\.\d+)?)|(F\d+\.\d+)|((((\d+P)?E)|ES|EN)\d+\.\d+(E\d+)?)"
+    table_format="regexp:(,|s|space|t|tab)((I\d+(\.\d+)?)|(F\d+\.\d+)|((((\d+P)?E)|ES|EN)\d+\.\d+(E\d+)?))"
+    id="regexp:[\w._]+"
+    string = "regexp:('[^';]*')|(\"[^\";]*\")|([^\s;=+\-*/,()$]*)"
+  ]
+
+  extends('.*_record') = record
+  extends('.*_named_param') = named_param
+}
+
+nonmem ::= nonmem_record *
+
+private newline ::= &<<isNewline>>
+private space ::= &<<isSpace>>
+
+private nonmem_record ::= !<<eof>> '$' record {
+  pin=1 recoverWhile=nonmem_record_recover
+}
+private nonmem_record_recover::=!('$')
+
+record ::= sizes_record | problem_record | data_record | input_record |
+    subroutine_record | model_record  | abbr_record | pk_record | des_record |
+    pred_record | error_record | theta_record | omega_record | sigma_record |
+    estimation_record | covariance_record | simulation_record | table_record
+
+sizes_record ::= << prefixOf "SIZES" >> sizes_named_param *
+sizes_named_param ::= sizes_int_param '=' number
+private sizes_int_param ::= 'LTH' | 'LVR' | 'LVR2' | 'NO' | 'MMX' | 'LNP4' | 'LSUPP' | 'LIM7' | 'LWS3' | 'MAXIDS' | 'LIM1' | 'LIM2' | 'LIM3' | 'LIM4' | 'LIM5' | 'LIM6' | 'LIM8' | 'LIM11' | 'LIM13' | 'LIM15' | 'LIM16' | 'MAXRECID' | 'PC' | 'PCT' | 'PIR' | 'PD' | 'PDT' | 'PAL' | 'MAXFCN' | 'DIMTMP' | 'DIMCNS' | 'DIMNEW' | 'DIMVRB' | 'PL' | 'NPOPMIXMAX' | 'MAXOMEG' | 'MAXPTHETA' | 'MAXITER' | 'ISAMPLEMAX' | 'MAXSIDL' | 'PNM_MAXNODES'
+
+problem_record ::= << prefixOf "PROBLEM" >> problem_option_param?
+problem_option_param ::= <<anything !newline>>
+
+data_record ::= << prefixOf "DATA" >> data_file_param data_format_param? data_named_param*
+data_file_param ::= file_param | '*'
+data_format_param ::= '(' data_format ')'
+data_named_param ::= data_char_param '=' (id | '@' | data_logic_param)
+private data_char_param ::= 'IGNORE' | 'ACCEPT'
+private data_logic_param ::= '(' data_logic_item (',' data_logic_item)* ')'
+private data_logic_item ::= (pk_reserved_param | id) abbr_code_logic_op number
+
+input_record ::= << prefixOf "INPUT" >> (input_named_param) +
+input_named_param ::= (input_reserved_param | id) ('=' (id | 'DROP'))?
+input_reserved_param ::= 'ID' | 'DV' | 'MDV' | 'TIME' | 'DATE' | 'AMT' | 'RATE' | 'EVID' | 'CMT' | 'II' | 'ADDL'
+
+subroutine_record ::= << prefixOf "SUBROUTINES" >> subroutine_param *
+subroutine_param ::= subroutine_option_param | subroutine_int_param
+subroutine_option_param ::= 'ADVAN1' | 'ADVAN2' | 'ADVAN3' | 'ADVAN4' | 'ADVAN5' | 'ADVAN6' | 'ADVAN11' | 'ADVAN12' | 'ADVAN13' | 'TRANS1' | 'TRANS2'| 'TRANS3' | 'TRANS4'
+subroutine_int_param ::= 'TOL' '=' number
+
+model_record ::= << prefixOf "MODEL" >> model_param*
+model_param ::= (<< prefixOf "COMPARTMENT" >> '=' '(' id (','? id)* ')')+
+
+abbr_record ::= << prefixOf "ABBR" >> abbr_param*
+abbr_param ::= ('DERIV2' '=' ('NO' | 'NOCOMMON')) | ('COMRES' '=' number) | ( 'DECLARE' 'DOWHILE'? id ('(' number ')')?)
+
+pk_record ::= << prefixOf "PK" >> abbr_code +
+des_record ::= << prefixOf "DES" >> abbr_code +
+error_record ::= << prefixOf "ERROR" >> abbr_code +
+pred_record ::= << prefixOf "PRED" >> abbr_code +
+
+abbr_code ::= abbr_code_if | abbr_code_do_while | abbr_code_equation
+abbr_code_if ::= 'IF' '(' abbr_code_expr ')' ('THEN' ('ELSE' | abbr_code_equation)+ 'ENDIF')?
+abbr_code_do_while ::= 'DOWHILE' '(' abbr_code_expr ')' (abbr_code_equation | abbr_code_if)+ 'ENDDO'
+
+abbr_code_equation ::= abbr_code_primary '=' abbr_code_expr
+private abbr_code_expr ::= abbr_code_plus_factor abbr_code_logic_expr *
+abbr_code_logic_expr ::= abbr_code_logic_op abbr_code_plus_factor
+private abbr_code_logic_op ::= '.EQ.' | '.NE.' | '.LE.' | '.GE.' | '.LT.' | '.GT.' | '.AND.' | '.OR.' | '<=' | '>=' | '<' | '>'
+private abbr_code_plus_factor ::= abbr_code_mul_factor abbr_code_plus_expr *
+left abbr_code_plus_expr ::= abbr_code_plus_op abbr_code_mul_factor
+private abbr_code_plus_op ::= '+'|'-'
+private abbr_code_mul_factor ::= abbr_code_primary abbr_code_mul_expr *
+left abbr_code_mul_expr ::= abbr_code_mul_op abbr_code_primary
+private abbr_code_mul_op ::= '*' | '/' | '**'
+private abbr_code_primary ::= abbr_code_variable | abbr_code_function | abbr_code_parenthesis | abbr_code_literal | abbr_code_reference
+abbr_code_variable ::=  ('THETA' | 'ETA' | 'EPS' | 'DADT' | 'ERR' | 'A' | 'A_0') '(' number ')'
+abbr_code_function ::= ('DEXP' | 'EXP' | 'SQRT' | 'LOG' | 'ABS' | 'SIN' | id) '(' abbr_code_expr ')'
+abbr_code_parenthesis ::= '(' abbr_code_expr ')'
+abbr_code_literal ::=  number
+abbr_code_reference ::= '-'? (pk_reserved_param | error_reserved_param | id)
+
+pk_reserved_param ::= 'KA' | 'CL' | 'V' | 'S1' | 'S2' | 'S3' | 'V1' | 'V2' | 'V3' | 'Q' | 'Q1' | 'Q2' | 'Q3' | 'ALAG1' | 'ALAG2' | 'ALAG3'
+error_reserved_param ::= 'F' | 'Y' | 'PRED' | 'IPRED' | 'CIPRED' | 'RES' | 'IRES' | 'CWRES' | 'IWRES' | 'CIWRES' | 'WRES'
+
+theta_record ::=  << prefixOf "THETA" >> initial_value*
+omega_record ::= << prefixOf  "OMEGA" >> omega_int_param? omega_option_param? initial_value*
+omega_int_param ::= ('DIAGONAL' | 'BLOCK') '(' number ')'
+omega_option_param ::= 'SAME' | ( 'VARIANCE' | 'STANDARD' ) | ( 'COVARIANCE' | 'CORRELATON' ) | 'CHOLESKY'
+
+sigma_record ::= << prefixOf "SIGMA" >> initial_value *
+
+initial_value ::= (number fixed?) | ('(' number (',' number)* fixed? ')' fixed?)
+private fixed ::= << prefixOf "FIXED" >>
+
+estimation_record ::= << prefixOf "ESTIMATION" >> estimation_param *
+private estimation_param ::= estimation_option_param | estimation_named_param
+estimation_option_param ::= 'INTER' | 'POSTHOC' | 'NOABORT' | 'LIKE' | 'LAPLACE'
+estimation_named_param ::= (estimation_int_param '=' number)
+private estimation_int_param ::= << prefixOf "METHOD" >> | <<prefixOf "MAXEVALS" >> | 'PRINT' | 'NSIG' | 'SIGL' | 'MCETA'
+
+covariance_record ::= << prefixOf "COVARIANCE" >> covariance_param *
+private covariance_param ::= covariance_option_param | covariance_named_param
+covariance_option_param ::= 'SPECIAL' | 'RESUME' | 'UNCONDITIONAL'
+covariance_named_param ::= (covariance_int_param '=' number) | (covariance_chr_param '=' id)
+private covariance_int_param ::= 'TOL' | 'ATOL'
+private covariance_chr_param ::= 'PRINT' | 'MATRIX'
+
+simulation_record ::= << prefixOf "SIMULATION" >> simulation_param *
+simulation_param ::= simulation_seed_param | simulation_option_param | simulation_named_param
+simulation_seed_param ::=  '(' number number? ')'
+simulation_option_param ::= << prefixOf "ONLYSIMULATION" >>
+simulation_named_param ::= 'SUBPROBLEMS' '=' number
+
+table_record ::= << prefixOf "TABLE" >> table_param +
+private table_param ::= table_option_param | table_file_param | table_format_param | input_reserved_param | pk_reserved_param | error_reserved_param | id
+table_option_param ::= ('PRINT' | 'NOPRINT') | ('NOHEADER' | 'ONEHEADER') | ('APPEND' | 'NOAPPEND')
+table_file_param ::= 'FILE' '=' file_param
+table_format_param ::= 'FORMAT' '=' table_format
+
+file_param ::= string | <<anything !(newline | '(' | ')' | ',' | ';' | ) !space>>
+fake named_param ::= id '=' id
